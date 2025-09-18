@@ -4,8 +4,8 @@
  Das ist ein test!
 */
 
- 
- 
+
+
 
 /* jshint -W097 */
 /* jshint strict: false */
@@ -64,12 +64,13 @@ async function startAdapter(options) {
     Object.assign(options, {name: adapterName});
 
     adapter = new utils.Adapter(options);
-	
+
 
 
     adapter.on('message', obj => {
         //adapter.log.info(JSON.stringify(obj));
-        processMessages(obj);
+        processMessages(obj).catch(err => adapter.log.error(`processMessages failed: ${err?.message || err}`));
+        return true;
     });
 
     adapter.on('ready', () => {
@@ -89,14 +90,14 @@ async function startAdapter(options) {
 
                 if(debug) adapter.log.warn("Projects found mit id: " + blacklist[i].id);
                 bl_projects.push(blacklist[i]);
-                if(debug) adapter.log.info("bl projects" + bl_projects); 
+                if(debug) adapter.log.info("bl projects" + bl_projects);
 
             }
             if(blacklist[i].activ == true && blacklist[i].art == "label"){
 
                 if(debug) adapter.log.warn("label found mit id: " + blacklist[i].id);
                 bl_labels.push(blacklist[i]);
-                if(debug) adapter.log.info("bl label" + bl_labels); 
+                if(debug) adapter.log.info("bl label" + bl_labels);
 
             }
 
@@ -104,7 +105,7 @@ async function startAdapter(options) {
 
                 if(debug) adapter.log.warn("Section found mit id: " + blacklist[i].id);
                 bl_projects.push(blacklist[i]);
-                if(debug) adapter.log.info("bl Section" + bl_sections); 
+                if(debug) adapter.log.info("bl Section" + bl_sections);
 
             }
 
@@ -121,14 +122,14 @@ async function startAdapter(options) {
         }
         //Grüner Punkt
         //check_online();
-        
+
         //Main Sequenze
         //main();
 
 
         //Regelmäßige ausführung wie eingestellt
         poll = adapter.config.pollingInterval;
-        
+
         if(poll < 10000){
             adapter.log.error("Polling under 10 Seconds, this is not supported and not working!");
         }
@@ -149,22 +150,22 @@ async function startAdapter(options) {
                 //adapter.log.info(JSON.stringify(mainintval));
                 mainintval && clearInterval(mainintval);
                 mainintval = null;
-                
-                
+
+
             callback();
         } catch (e) {
             callback();
         }
 
-        
+
     });
 
-    
-    
-    
+
+
+
     // is called if a subscribed state changes
     adapter.on('stateChange', (id, state) => {
-        
+
         //adapter.log.info("state: " + JSON.stringify(id));
 
         //Nur den Names des States nehmen.
@@ -173,19 +174,19 @@ async function startAdapter(options) {
         var end_pos = id.length;
         var new_id = id.substr(pos, end_pos);
 
-        
+
         //adapter.log.info("state: " + JSON.stringify(state));
 
         //addTask(item, proejct_id, section_id, parent, order, label_id, priority, date, dupli)
-        
+
         if(new_id == "Task"){
             //neuer Task über Objekte
             new_with_state(id, state);
         }else if(new_id == "ID"){
 
-            
+
             //adapter.log.info("ausführen: " + state.val);
-            
+
             // @ts-ignore
             closeTask(state.val);
             main();
@@ -194,7 +195,7 @@ async function startAdapter(options) {
             state_task_delete(new_id, state);
         }
 
-    });    
+    });
 
     return adapter;
 }
@@ -206,7 +207,7 @@ if(state.val == true && state.val !== undefined){
     for(var i = 0; i < all_task_objekts.length; i++){
         if(all_task_objekts[i].content == new_id){
             //adapter.log.info("task aus der liste gefunden " + JSON.stringify(state));
-            
+
             closeTask(all_task_objekts[i].id);
             adapter.delObject("Tasks." + new_id, function (err) {
                 if (err) adapter.log.error('Cannot delete object: ' + err);
@@ -227,7 +228,7 @@ async function new_with_state(id, state){
     var new_priority = await adapter.getStateAsync('Control.New.Priority');
     var new_date =  await adapter.getStateAsync('Control.New.Date');
     var new_label =  await adapter.getStateAsync('Control.New.Label');
-    
+
 
     //wenn Felder leer sind dise auch löschen.
     if(new_priority == null|| new_priority.val === 0){new_priority = ""};
@@ -259,7 +260,7 @@ async function newstate(){
             role: 'text',
             name: 'Task Name',
             type: 'string'
-            
+
         },
         native: {}
           });
@@ -269,18 +270,18 @@ async function newstate(){
                 role: 'state',
                 name: 'Project ID',
                 type: 'number'
-                
+
             },
             native: {}
               });
-    
+
     await adapter.setObjectNotExistsAsync("Control.New.Label", {
                 type: 'state',
                 common: {
                     role: 'state',
                     name: 'Label ID',
                     type: 'number'
-                    
+
                 },
                 native: {}
                   });
@@ -291,7 +292,7 @@ async function newstate(){
                         role: 'value',
                         name: 'Priority',
                         type: 'number'
-                        
+
                     },
                     native: {}
                       });
@@ -302,7 +303,7 @@ async function newstate(){
                             role: 'date',
                             name: 'Date',
                             type: 'string'
-                            
+
                         },
                         native: {}
                           });
@@ -313,139 +314,110 @@ async function newstate(){
                 role: 'state',
                 name: 'Task ID',
                 type: 'number'
-                            
+
                 },
                 native: {}
                 });
 
 }
 
-//Aus der Send Funktion einen Task bauen
-function processMessages(obj) {
-    //adapter.log.info(JSON.stringify(obj.command));
-    
-    if(debug) adapter.log.info(JSON.stringify(obj.message.funktion));
-      
-    switch(obj.message.funktion) {
-	case "add_task":
-    if(debug) adapter.log.info("prüfe add task ausführen");
-    if(obj.message.task !== undefined){
-    	
-    	if(debug)adapter.log.info("funktion add task ausführen");
-    	addTask(obj.message.task, obj.message.project_id, obj.message.section_id, obj.message.parent, obj.message.order, obj.message.label_id, obj.message.priority, obj.message.date ,true);
-    }else{
-    	
-    	adapter.log.warn("Please use the needed fields!!!");
-    	
+/**
+ * Verarbeitet Kommandos aus obj.message.[funktion|function]
+ * Erwartet ein Objekt wie z.B.:
+ * { message: { funktion: "add_task", task: "…" , project_id: 123, … } }
+ */
+async function processMessages(obj) {
+    const msg = obj?.message || {};
+    // Abwärtskompatibel zu "funktion", optional modern "function" zulassen
+    const action = msg.funktion ?? msg.function;
+
+    // Map: Aktion -> { required: [...], handler: () => void }
+    const routes = {
+        add_task: {
+            required: ["task"],
+            handler: () =>
+                addTask(
+                    msg.task,
+                    msg.project_id,
+                    msg.section_id,
+                    msg.parent,
+                    msg.order,
+                    msg.label_id,
+                    msg.priority,
+                    msg.date,
+                    true
+                ),
+        },
+        del_task: {
+            required: ["task_id"],
+            handler: () => delTask(msg.task_id),
+        },
+        add_project: {
+            required: ["project"],
+            handler: () => addProject(msg.project, msg.parent),
+        },
+        del_project: {
+            required: ["project_id"],
+            handler: () => dellProject(msg.project_id), // Tippfehler im Original beibehalten, falls Funktion so heißt
+        },
+        close_task: {
+            required: ["task_id"],
+            handler: () => closeTask(msg.task_id),
+        },
+        reopen_task: {
+            required: ["task_id"],
+            handler: () => reopenTask(msg.task_id),
+        },
+        add_section: {
+            required: ["project_id", "section"],
+            handler: () => addSection(msg.section, msg.project_id),
+        },
+        del_section: {
+            required: ["section_id"],
+            handler: () => delSection(msg.section_id),
+        },
+    };
+
+    // Validierung: bekannte Aktion?
+    if (!action || !routes[action]) {
+        adapter.log.warn(
+            `Unbekannte Funktion "${action}". Erlaubt: ${Object.keys(routes).join(", ")}`
+        );
+        return;
     }
-    
-    break;
-	case "del_task":
-    if(debug) adapter.log.info("prüfe del task ausführen");
-    
-    if(obj.message.task_id !== undefined){
-    	
-    	if(debug) adapter.log.info("funktion del task ausführen");
-    	delTask(obj.message.task_id);
-    }else{
-    	
-    	adapter.log.warn("Please use the needed fields!!!");
-    	
+
+    // Pflichtfelder prüfen (leere Strings und null ebenfalls abfangen)
+    const missing = routes[action].required.filter(
+        (k) => msg[k] === undefined || msg[k] === null || msg[k] === ""
+    );
+    if (missing.length) {
+        adapter.log.warn(
+            `Fehlende Pflichtfelder für "${action}": ${missing.join(", ")}`
+        );
+        if (obj.callback) {
+            const result = { success: false, message: `Fehlende Felder: ${missing.join(", ")}` };
+            adapter.sendTo(obj.from, obj.command, result, obj.callback);
+        }
+        return;
     }
-    
-    break;
-    case "add_project":
-    if(debug) adapter.log.info("prüfe add project ausführen");
-    
-    if(obj.message.project !== undefined){
-    	
-    	if(debug) adapter.log.info("funktion add project ausführen");
-    	addProject(obj.message.project, obj.message.parent);
-    }else{
-    	
-    	adapter.log.warn("Please use the needed fields!!!");
-    	
+
+    // Ausführen mit konsistentem Logging + Fehlerfang
+    try {
+        adapter.log.debug(`[${action}] Payload: ${JSON.stringify(msg)}`);
+        const result = await routes[action].handler();
+        adapter.log.info("Handler-Result: " + JSON.stringify(result));
+        if (obj.callback) adapter.sendTo(obj.from, obj.command, result, obj.callback);
+    } catch (err) {
+        // @ts-ignore
+        const message = err && err.message ? err.message : String(err);
+        adapter.log.error(`Fehler bei "${action}": ${message}`);
+        if (obj.callback) {
+            const errorResult = { success: false, message };
+            adapter.sendTo(obj.from, obj.command, errorResult, obj.callback);
+        }
     }
-    
-    break;
-    case "del_project":
-    if(debug) adapter.log.info("prüfe del project ausführen");
-    
-    if(obj.message.project_id !== undefined){
-    	
-    	if(debug) adapter.log.info("funktion dell project ausführen");
-    	dellProject(obj.message.project_id);
-    }else{
-    	
-    	adapter.log.warn("Please use the needed fields!!!");
-    	
-    }
-    
-    
-    break;
-    case "close_task":
-    if(debug) adapter.log.info("prüfe close task ausführen");
-    
-    if(obj.message.task_id !== undefined){
-    	
-    	if(debug) adapter.log.info("funktion close task ausführen");
-    	//adapter.log.warn("Funktion is not working: Problem is by todoist....");
-    	closeTask(obj.message.task_id);
-    }else{
-    	
-    	adapter.log.warn("Please use the needed fields!!!");
-    	
-    }
-    
-    break;
-    case "reopen_task":
-    if(debug) adapter.log.info("prüfe reopen task ausführen");
-    
-    if(obj.message.task_id !== undefined){
-    	
-    	if(debug) adapter.log.info("funktion reopen task ausführen");
-    	//adapter.log.warn("Funktion is not working: Problem is by todoist....");
-    	reopenTask(obj.message.task_id);
-    }else{
-    	
-    	adapter.log.warn("Please use the needed fields!!!");
-    	
-    }
-    
-    break;
-    case "add_section":
-    if(debug) adapter.log.info("prüfe add section ausführen");
-    
-    if(obj.message.project_id !== undefined && obj.message.section !== undefined){
-    	
-    	if(debug) adapter.log.info("funktion add section ausführen");
-    	addSection(obj.message.section, obj.message.project_id);
-    }else{
-    	
-    	adapter.log.warn("Please use the needed fields!!!");
-    	
-    }
-    
-    break;
-    case "del_section":
-    if(debug) adapter.log.info("prüfe del section ausführen");
-    
-     if(obj.message.section_id !== undefined){
-    	
-    	if(debug) adapter.log.info("funktion del section ausführen");
-    	delSection(obj.message.section_id);
-    }else{
-    	
-    	adapter.log.warn("Please use the needed fields!!!");
-    	
-    }
-    
-    break;
-	default:
-    adapter.log.warn("Please use a defined funktion!!!");
-}  
-    
 }
+
 
 function syncronisation(){
 
@@ -457,7 +429,7 @@ function syncronisation(){
 
 
         for(var j = 0; j < sync.length; j++){
-            
+
             var sync_quelle = sync[j].sync_id_q;
             var sync_ziel = sync[j].sync_id_z;
             var sync_activ = sync[j].sync_activ;
@@ -465,27 +437,27 @@ function syncronisation(){
 
 
             if(sync_project_id == sync_quelle && sync_activ == true){
-                
 
-                
+
+
                                 //adapter.log.warn("task: " + sync_task_contend);
-            
+
                                  addTask(sync_task_contend, sync_ziel, "", "", "", "", "", "", false);
                                 //adapter.log.info("ergebnist: ");
-                                
+
                                 if(sync_delete == true){
-                                    
+
                                 closeTask(sync_task_id);
                                    // adapter.log.info("ergebnis2: ");
-                                    
-                                    
+
+
                                 }
 
 
-                
+
                     }
 
-                    
+
         }
     }
 }
@@ -495,15 +467,15 @@ function syncronisation(){
 
 
 async function check_online(){
-    var APItoken = adapter.config.token;    
+    var APItoken = adapter.config.token;
 
-    
+
     await axios({
         method: 'get',
         baseURL: 'https://api.todoist.com',
         url: '/rest/v2/projects',
         //responseType: 'json',
-        headers: 
+        headers:
            { Authorization: 'Bearer ' + APItoken}
     }).then(
         function (response) {
@@ -515,17 +487,17 @@ async function check_online(){
             	if(debug) adapter.log.warn("check online: " + JSON.stringify(response.status));
                 adapter.setState('info.connection', true, true);
                 online_net = true;
-                
-                
+
+
             }else{
-            	
+
             	adapter.setState('info.connection', false, true);
                 adapter.log.warn("No Connection to todoist possible!!! Please Check your Internet Connection.")
                 online_net = false;
-                
+
             }
         }
-        
+
         ).catch(
 
             function (error) {
@@ -547,7 +519,7 @@ async function check_online(){
                     adapter.log.error(error.message);
                     adapter.setState('info.connection', false, true);
                     online_net = false;
-  
+
                 }
             }.bind(adapter)
  );
@@ -564,139 +536,169 @@ function createUUID(){
     return uuid;
 }
 
-//dupli ist zur aktivierung der duplikatserkennung in der funktion
-//wurde eingebaut um die Synconistations funktion die duplikateserkenng zu umgehen.
-// false --> deaktiviert
-//true --> aktiviert (sollte standard sein)
-async function addTask(item, proejct_id, section_id, parent, order, label_id, priority, date, dupli){
-    
-    if(debug)adapter.log.info("neuen Task anlegen starten....");
-     if(debug)adapter.log.info("item: " + item);
-     if(debug)adapter.log.info("proejct_id: " + proejct_id);
-     if(debug)adapter.log.info("section_id: " + section_id);
-     if(debug)adapter.log.info("parent: " + parent);
-     if(debug)adapter.log.info("order: " + order);
-     if(debug)adapter.log.info("label_id: " + label_id);
-     if(debug)adapter.log.info("priority: " + priority);
-     if(debug)adapter.log.info("date: " + date);
-     if(debug) adapter.log.info("dupli: " + dupli);
-    var dublicate_sperre = false;
-    
-    if(adapter.config.dublicate == true){
+async function addTask(
+    item,
+    project_id,
+    section_id,
+    parent,
+    order,
+    label_id,
+    priority,
+    date,
+    dupli
+) {
+    const dbg = (msg) => { adapter.log.debug(msg); };
 
-        if(debug)adapter.log.warn("Starte Prüfung Duplikate");
-        if(debug)adapter.log.warn("Object liste: " + all_task_objekts);
-        if(debug)adapter.log.warn("Object liste: " + all_task_objekts.length);
+    // Legacy: Der Aufrufer verwendet noch "proejct_id"? -> Abfangen:
+    const legacyProjectId = project_id ?? arguments[1]; // Bewusst identisch – nur Kommentar für Leser
+    // Tippfehler-Flag in config bleibt erhalten (dublicate), wir respektieren das:
+    const duplicatesEnabled = adapter?.config?.dublicate === true;
 
-        for (var ik = 0; ik < all_task_objekts.length; ik++){
-            // look for the entry with a matching `code` value
-            if (all_task_objekts[ik].content == item && dupli == true){
-               
-                //prüfe ab ob ein Projekt synconisiert werden soll, dieses Projekt soll von der Dublikatserkennung ausgenommen werden, da diese Contents mehrmals existieren dürfen
-               
-                    adapter.log.info("Objekt besteht schon und wird deshalb geplockt");
-                    return;
-                
+    dbg("neuen Task anlegen starten…");
+    dbg(`item: ${item}`);
+    dbg(`project_id: ${legacyProjectId}`);
+    dbg(`section_id: ${section_id}`);
+    dbg(`parent: ${parent}`);
+    dbg(`order: ${order}`);
+    dbg(`label_id: ${JSON.stringify(label_id)}`);
+    dbg(`priority: ${priority}`);
+    dbg(`date: ${date}`);
+    dbg(`dupli: ${dupli}`);
+
+    // Feld-Normalisierung
+    const toNum = (v) => (v === "" || v === null || v === undefined ? undefined : Number(v));
+    const isSet = (v) => v !== "" && v !== null && v !== undefined;
+
+    // 1) Duplikat-Prüfung (wenn in Config aktiv UND dupli == true)
+    if (duplicatesEnabled && dupli === true) {
+        if (debug) {
+            adapter.log.warn("Starte Prüfung Duplikate");
+            adapter.log.warn(`Object liste length: ${Array.isArray(all_task_objekts) ? all_task_objekts.length : "n/a"}`);
+        }
+
+        if (Array.isArray(all_task_objekts)) {
+            const exists = all_task_objekts.some((t) => t && t.content === item);
+            if (exists) {
+                adapter.log.info("Objekt besteht schon und wird deshalb geblockt");
+                return; // frühes Ende – kein Request
             }
-          }
+        }
     }
 
-        createUUID();
-        var APItoken = adapter.config.token;
+    // 2) Request-Daten zusammenstellen (nur gesetzte Felder anfügen)
+    const payload = { content: item };
 
-      
-        if(dublicate_sperre == false){
-         
-          var datasend = {content: item };
-          
-          if(proejct_id != "" && proejct_id != null){
-            datasend.project_id = parseInt(proejct_id);
-            };            
-            if(section_id != "" && section_id != null){
-            datasend.section_id= parseInt(section_id);
-            };
-            if(parent != "" && parent != null){
-            datasend.parent=parent;
-            };
-            if(order != "" && order != null){
-            datasend.order= parseInt(order);
-            };
-            if(label_id != "" && label_id != null){
-             datasend.label_ids=label_id;
-            };
-            if(priority != "" && priority != null){
-            datasend.priority=parseInt(priority);
-            };
-            if(date != "" && date != null){
-            datasend.due_string=date;
-            };
+    const pId = toNum(legacyProjectId);
+    if (isSet(pId)) payload.project_id = pId;
 
-            if(debug) adapter.log.info("Daten zum senden: " + JSON.stringify(datasend));
-            
+    const sId = toNum(section_id);
+    if (isSet(sId)) payload.section_id = sId;
 
-            
+    if (isSet(parent)) payload.parent = parent;
 
-            await axios({
-                method: 'post',
-                baseURL: 'https://api.todoist.com',
-                url: '/rest/v2/tasks',
-                
-                headers: 
-                { 'Cache-Control': 'no-cache',
-                Authorization: 'Bearer ' + APItoken,
-                'X-Request-Id': uuid,
-                'Content-Type': 'application/json' },
-                data: datasend,      
+    const ord = toNum(order);
+    if (isSet(ord)) payload.order = ord;
+
+    // label_ids muss ein Array sein (Todoist REST v2)
+    if (isSet(label_id)) {
+        if (Array.isArray(label_id)) {
+            payload.label_ids = label_id.map((x) => (typeof x === "number" ? x : Number(x))).filter((x) => !Number.isNaN(x));
+        } else {
+            const n = Number(label_id);
+            payload.label_ids = Number.isNaN(n) ? [String(label_id)] : [n];
+        }
+    }
+
+    const prio = toNum(priority);
+    if (isSet(prio)) payload.priority = prio;
+
+    if (isSet(date)) payload.due_string = date;
+
+    dbg(`Daten zum Senden: ${JSON.stringify(payload)}`);
+
+    // 3) Request absetzen
+    const APItoken = adapter?.config?.token;
+    if (!APItoken) {
+        adapter.log.error("Kein API-Token in adapter.config.token gefunden.");
+        return;
+    }
+
+    // Falls createUUID/uuid global existieren: nutzen; ansonsten eigene UUID erzeugen
+    let requestId = typeof uuid !== "undefined" ? uuid : undefined;
+    try {
+        if (!requestId && typeof createUUID === "function") {
+            createUUID();
+            requestId = typeof uuid !== "undefined" ? uuid : undefined;
+        }
+    } catch (_) {
+        // ignore
+    }
+    if (!requestId) {
+        // Fallback: sehr simpler Request-Id Generator
+        requestId = `ioBroker-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    try {
+        const response = await axios({
+            method: "post",
+            baseURL: "https://api.todoist.com",
+            url: "/rest/v2/tasks",
+            headers: {
+                "Cache-Control": "no-cache",
+                Authorization: `Bearer ${APItoken}`,
+                "X-Request-Id": requestId,
+                "Content-Type": "application/json",
+            },
+            data: payload,
+            // timeout: 15000, // optional
+        });
+
+        adapter.log.debug("Task erfolgreich angelegt\n" + JSON.stringify(response?.data));
+        // response.data enthält den angelegten Task (Objekt)
+        return response?.data;
+    } catch (error) {
+        // @ts-ignore
+        if (error && error.response) {
+            adapter.log.warn(
+                // @ts-ignore
+                `received error ${error.response.status} response from todoist with content: ${JSON.stringify(error.response.data)}`
+            );
+            try {
+                // @ts-ignore
+                adapter.log.warn(JSON.stringify(error.toJSON()));
+            } catch (_) {
+                // ignore
             }
-            ).then( 
-                function (response) {
-                    if(debug)adapter.log.info('setzte neuen Task: ' + response);
-                }
-                
-            ).catch(
-        
-                function (error) {
-                    if (error.response) {
-                        // The request was made and the server responded with a status code
-                        adapter.log.warn('received error ' + error.response.status + ' response from todoist with content: ' + JSON.stringify(error.response.data));
-                        adapter.log.warn(JSON.stringify(error.toJSON()));
-                    } else if (error.request) {
-                        // The request was made but no response was received
-                        // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-                        // http.ClientRequest in node.js
-                       adapter.log.info(error.message);
-                    } else {
-                        // Something happened in setting up the request that triggered an Error
-                        adapter.log.error(error.message); 
-                    }
-    }.bind(adapter)
-        
-        );
-         
-   
+            // @ts-ignore
+        } else if (error && error.request) {
+            // @ts-ignore
+            adapter.log.info(String(error.message || error));
+        } else {
+            // @ts-ignore
+            adapter.log.error(String(error?.message ?? error));
+        }
     }
 }
 
-    
-    
+
 async function delTask(task_id){
-	
+
 	var APItoken = adapter.config.token;
         //purchItem = item + " " + anzahl + " Stück";
-        
+
 await axios({
     method: 'DELETE',
     baseURL: 'https://api.todoist.com',
     url: '/rest/v2/tasks/' + task_id,
     responseType: 'json',
-    headers: 
+    headers:
     {  Authorization: 'Bearer ' + APItoken, },
 }
-).then( 
+).then(
     function (response) {
         if(debug)adapter.log.info('lösche  Task: ' + response);
     }
-    
+
 ).catch(
 
     function (error) {
@@ -711,7 +713,7 @@ await axios({
            adapter.log.info(error.message);
         } else {
             // Something happened in setting up the request that triggered an Error
-            adapter.log.error(error.message); 
+            adapter.log.error(error.message);
         }
 }.bind(adapter)
 
@@ -720,31 +722,31 @@ await axios({
 
 
 async function addProject(project, parent){
-	
+
 	createUUID();
         var APItoken = adapter.config.token;
         //purchItem = item + " " + anzahl + " Stück";
-    
+
 
 await axios({
     method: 'post',
     baseURL: 'https://api.todoist.com',
     url: '/rest/v2/projects',
     responseType: 'json',
-    headers: 
+    headers:
     { 'Cache-Control': 'no-cache',
     Authorization: 'Bearer ' + APItoken,
     'X-Request-Id': uuid,
     'Content-Type': 'application/json' },
     data: { name: project,
         parent: parent
-        }         
+        }
 }
-).then( 
+).then(
     function (response) {
         if(debug)adapter.log.info('setzte neues Projekt: ' + response);
     }
-    
+
 ).catch(
 
     function (error) {
@@ -759,34 +761,34 @@ await axios({
            adapter.log.info(error.message);
         } else {
             // Something happened in setting up the request that triggered an Error
-            adapter.log.error(error.message); 
+            adapter.log.error(error.message);
         }
 }.bind(adapter)
 
 );
-          
+
 }
 
 async function dellProject(project_id){
-	
+
     var APItoken = adapter.config.token;
-    
-  
+
+
     await axios({
         method: 'DELETE',
         baseURL: 'https://api.todoist.com',
         url: '/rest/v2/projects/' + project_id,
         responseType: 'json',
-        headers: 
+        headers:
         {  Authorization: 'Bearer ' + APItoken, },
     }
-    ).then( 
+    ).then(
         function (response) {
             if(debug)adapter.log.info('lösche  Projekt: ' + response);
         }
-        
+
     ).catch(
-    
+
         function (error) {
             if (error.response) {
                 // The request was made and the server responded with a status code
@@ -799,34 +801,34 @@ async function dellProject(project_id){
                adapter.log.info(error.message);
             } else {
                 // Something happened in setting up the request that triggered an Error
-                adapter.log.error(error.message); 
+                adapter.log.error(error.message);
             }
     }.bind(adapter)
-    
+
     );
-	
+
 }
 
 
 async function closeTask(task_id){
     var APItoken = adapter.config.token;
-    
-    
+
+
     await axios({
         method: 'POST',
         baseURL: 'https://api.todoist.com',
         url: '/rest/v2/tasks/' + task_id + '/close',
         responseType: 'json',
-        headers: 
+        headers:
         {  Authorization: 'Bearer ' + APItoken, },
     }
-    ).then( 
+    ).then(
         function (response) {
             if(debug)adapter.log.info('schließe  Task: ' + response);
         }
-        
+
     ).catch(
-    
+
         function (error) {
             if (error.response) {
                 // The request was made and the server responded with a status code
@@ -839,10 +841,10 @@ async function closeTask(task_id){
                adapter.log.info(error.message);
             } else {
                 // Something happened in setting up the request that triggered an Error
-                adapter.log.error(error.message); 
+                adapter.log.error(error.message);
             }
     }.bind(adapter)
-    
+
     );
 
 }
@@ -850,25 +852,25 @@ async function closeTask(task_id){
 
 
 async function reopenTask(task_id){
-	
+
 	var APItoken = adapter.config.token;
-    
-   
+
+
     await axios({
         method: 'POST',
         baseURL: 'https://api.todoist.com',
         url: '/rest/v2/tasks/' + task_id + '/reopen',
         responseType: 'json',
-        headers: 
+        headers:
         {  Authorization: 'Bearer ' + APItoken, },
     }
-    ).then( 
+    ).then(
         function (response) {
             if(debug)adapter.log.info('wiederöffne  Task: ' + response);
         }
-        
+
     ).catch(
-    
+
         function (error) {
             if (error.response) {
                 // The request was made and the server responded with a status code
@@ -881,42 +883,42 @@ async function reopenTask(task_id){
                adapter.log.info(error.message);
             } else {
                 // Something happened in setting up the request that triggered an Error
-                adapter.log.error(error.message); 
+                adapter.log.error(error.message);
             }
     }.bind(adapter)
-    
+
     );
-	
-	
+
+
 }
 
 
 async function addSection(section, project_id){
-	
+
 	createUUID();
         var APItoken = adapter.config.token;
         //purchItem = item + " " + anzahl + " Stück";
-       
-       
+
+
 await axios({
     method: 'post',
     baseURL: 'https://api.todoist.com',
     url: '/rest/v2/sections',
     responseType: 'json',
-    headers: 
+    headers:
     { 'Cache-Control': 'no-cache',
     Authorization: 'Bearer ' + APItoken,
     'X-Request-Id': uuid,
     'Content-Type': 'application/json' },
     data: { name: section,
         project_id: project_id,
-        },         
+        },
 }
-).then( 
+).then(
     function (response) {
         if(debug)adapter.log.info('setzte neue Section: ' + response);
     }
-    
+
 ).catch(
 
     function (error) {
@@ -931,34 +933,34 @@ await axios({
            adapter.log.info(error.message);
         } else {
             // Something happened in setting up the request that triggered an Error
-            adapter.log.error(error.message); 
+            adapter.log.error(error.message);
         }
 }.bind(adapter)
 
 );
-	
+
 }
 
 
 
 async function delSection(section_id){
-	
+
 	var APItoken = adapter.config.token;
-        
+
 
 await axios({
     method: 'DELETE',
     baseURL: 'https://api.todoist.com',
     url: '/rest/v2/sections/' + section_id,
     responseType: 'json',
-    headers: 
+    headers:
     {  Authorization: 'Bearer ' + APItoken, },
 }
-).then( 
+).then(
     function (response) {
         if(debug)adapter.log.info('lösche  Section: ' + response);
     }
-    
+
 ).catch(
 
     function (error) {
@@ -973,7 +975,7 @@ await axios({
            adapter.log.info(error.message);
         } else {
             // Something happened in setting up the request that triggered an Error
-            adapter.log.error(error.message); 
+            adapter.log.error(error.message);
         }
 }.bind(adapter)
 
@@ -986,32 +988,32 @@ await axios({
 async function getData(){
 
 
-    
+
     if(debug) adapter.log.info("Funktion get Data");
 
 	var APItoken = adapter.config.token;
-    
+
 
     //Projekte einlesen:
     if(adapter.config.project === true){
                 if(debug) adapter.log.info("get Projects");
 
-                
+
                 await axios({
                     method: 'get',
                     baseURL: 'https://api.todoist.com',
                     url: '/rest/v2/projects',
                     responseType: 'json',
-                    headers: 
+                    headers:
                     { Authorization: 'Bearer ' + APItoken}
-                }    
-                ).then( 
+                }
+                ).then(
                     function (response) {
                         //adapter.log.info('get Projects: ' + stringify(response, null, 2));
                         var projects_json = response.data;
                         all_project_objekts = projects_json;
                     }
-                    
+
                 ).catch(
 
                     function (error) {
@@ -1026,20 +1028,20 @@ async function getData(){
                         adapter.log.info(error.message);
                         } else {
                             // Something happened in setting up the request that triggered an Error
-                            adapter.log.error(error.message); 
+                            adapter.log.error(error.message);
                         }
             }.bind(adapter)
 
-            ); 
+            );
 
 
 
     var project = { method: 'GET',
           url: 'https://api.todoist.com/rest/v2/projects',
-          headers: 
+          headers:
            { Authorization: 'Bearer ' + APItoken}
     };
-    
+
     }
 
 
@@ -1054,25 +1056,25 @@ async function getData(){
         for(let x in all_project_objekts){
             let collaborators = [];
             //adapter.log.debug(JSON.stringify(all_project_objekts[x].shared));
-            
+
             // nur wenn geschared ist gibt es Collaborators
             if(all_project_objekts[x].shared === true){
                 if(debug) adapter.log.info("get Collaborators");
-                
+
                 await axios({
                     method: 'get',
                     baseURL: 'https://api.todoist.com',
                     url: '/rest/v2/projects/'+all_project_objekts[x].id +'/collaborators',
                     responseType: 'json',
-                    headers: 
+                    headers:
                     { Authorization: 'Bearer ' + APItoken}
-                }    
-                ).then( 
+                }
+                ).then(
                     function (response) {
                         //adapter.log.info('get Projects: ' + stringify(response, null, 2));
                         collaborators = response.data;
                     }
-                    
+
                 ).catch(
 
                     function (error) {
@@ -1087,17 +1089,17 @@ async function getData(){
                         adapter.log.info(error.message);
                         } else {
                             // Something happened in setting up the request that triggered an Error
-                            adapter.log.error(error.message); 
+                            adapter.log.error(error.message);
                         }
             }.bind(adapter)
 
-            ); 
+            );
             collaborators.unshift("project_id:"+all_project_objekts[x].id);
             //zu all collaborators Objekts hinzufügen
             all_collaborators_objects.push(collaborators)
-        
+
         }
-            
+
 
         //ende for schleife
         }
@@ -1115,24 +1117,24 @@ async function getData(){
 
         if(debug) adapter.log.info("get Labels");
 
-        
+
         await axios({
             method: 'get',
             baseURL: 'https://api.todoist.com',
             url: '/rest/v2/labels',
             responseType: 'json',
-            headers: 
+            headers:
             { Authorization: 'Bearer ' + APItoken}
-        }    
-        ).then( 
+        }
+        ).then(
             function (response) {
                 //adapter.log.info('get labels: ' + stringify(response, null, 2));
                 var labels_json = response.data;
                 all_label_objekts = labels_json;
             }
-            
+
         ).catch(
-    
+
             function (error) {
                 if (error.response) {
                     // The request was made and the server responded with a status code
@@ -1145,34 +1147,34 @@ async function getData(){
                    adapter.log.info(error.message);
                 } else {
                     // Something happened in setting up the request that triggered an Error
-                    adapter.log.error(error.message); 
+                    adapter.log.error(error.message);
                 }
     }.bind(adapter)
-    
-    ); 
- 
+
+    );
+
     }
 
     //Sections einlesen:
     if(adapter.config.section === true){
 
         if(debug) adapter.log.info("get Sections");
-            
+
     await axios({
         method: 'get',
         baseURL: 'https://api.todoist.com',
         url: '/rest/v2/sections',
         responseType: 'json',
-        headers: 
+        headers:
         { Authorization: 'Bearer ' + APItoken}
-    }    
-    ).then( 
+    }
+    ).then(
         function (response) {
             //adapter.log.info('get sections: ' + stringify(response, null, 2));
             var sections_json = response.data;
             all_sections_objects = sections_json;
         }
-        
+
     ).catch(
 
         function (error) {
@@ -1187,31 +1189,31 @@ async function getData(){
                adapter.log.info(error.message);
             } else {
                 // Something happened in setting up the request that triggered an Error
-                adapter.log.error(error.message); 
+                adapter.log.error(error.message);
             }
 }.bind(adapter)
 
-); 
-       
+);
+
     }
 
     //Tasks einlesen:
     //wird immer gemacht
     // wenn das fertig ist, OK ausgeben
-    
+
         if(debug) adapter.log.info("get Tasks");
-        
-        
-       
+
+
+
     await axios({
         method: 'get',
         baseURL: 'https://api.todoist.com',
         url: '/rest/v2/tasks',
         responseType: 'json',
-        headers: 
+        headers:
         { Authorization: 'Bearer ' + APItoken}
-    }    
-    ).then( 
+    }
+    ).then(
         function (response) {
             //adapter.log.info('get Tasks: ' + stringify(response, null, 2));
             if(debug)adapter.log.info("response is da");
@@ -1219,7 +1221,7 @@ async function getData(){
             all_task_objekts = tasks_json;
             if(debug)adapter.log.info(JSON.stringify(all_task_objekts));
         }
-        
+
     ).catch(
 
         function (error) {
@@ -1234,12 +1236,12 @@ async function getData(){
                adapter.log.info(error.message);
             } else {
                 // Something happened in setting up the request that triggered an Error
-                adapter.log.error(error.message); 
+                adapter.log.error(error.message);
             }
 }.bind(adapter)
 
-); 
-        
+);
+
 
 }
 
@@ -1257,11 +1259,11 @@ if(adapter.config.project === true){
             role: 'state',
             name: 'RAW Project Data',
             type: 'json'
-            
+
         },
         native: {}
           });
-    
+
     await adapter.setStateAsync("RAW.Project", {val: JSON.stringify(all_project_objekts), ack: true});
 }
 
@@ -1275,11 +1277,11 @@ if(adapter.config.labels === true){
             role: 'state',
             name: 'RAW Labels Data',
             type: 'json'
-            
+
         },
         native: {}
           });
-    
+
     await adapter.setStateAsync("RAW.Labels", {val: JSON.stringify(all_label_objekts), ack: true});
 }
 
@@ -1293,11 +1295,11 @@ if(adapter.config.section === true){
             role: 'state',
             name: 'RAW Sections Data',
             type: 'json'
-            
+
         },
         native: {}
           });
-    
+
     await adapter.setStateAsync("RAW.Sections", {val: JSON.stringify(all_sections_objects), ack: true});
 }
 
@@ -1311,11 +1313,11 @@ if(adapter.config.tasks === true){
             role: 'state',
             name: 'RAW Tasks Data',
             type: 'json'
-            
+
         },
         native: {}
           });
-    
+
     await adapter.setStateAsync("RAW.Tasks", {val: JSON.stringify(all_task_objekts), ack: true});
 }
 
@@ -1329,11 +1331,11 @@ if(adapter.config.project_collaborators === true){
             role: 'state',
             name: 'RAW Project Collaborators',
             type: 'json'
-            
+
         },
         native: {}
           });
-    
+
     await adapter.setStateAsync("RAW.Project_Collaborators", {val: JSON.stringify(all_collaborators_objects), ack: true});
 }
 
@@ -1347,17 +1349,17 @@ async function getProject(){
 	if(debug) adapter.log.info("Funktion get Project");
 	var ToDoListen = []; // wird mit IDs der TO-DO Listen befuellt
     var Projects_names = []; // wird mit Namen der TO-DO Listen befuellt
-    
+
     var json_neu = "[]";
     var json_neu_parse = JSON.parse(json_neu);
-	      
+
             var k;
             var projects_json = all_project_objekts; // Alle Projekte in die globelae Variable lesen
-           
+
             for (k = 0; k < projects_json.length; k++) {
                 var projects = parseInt(projects_json[k].id);
                 var is_blacklist = false;
-                for (var w = 0; w < bl_projects.length; w++){               
+                for (var w = 0; w < bl_projects.length; w++){
                     if(projects == bl_projects[w].id){
                       //  adapter.log.info("projects: " + projects);
                       //  adapter.log.info("liste: " +  JSON.stringify(bl_projects[w]));
@@ -1381,12 +1383,12 @@ async function getProject(){
                 */
                var Listenname = projects_name;
                 var listenID = projects;
-                
+
                 Listenname = Listenname.replace(/\.|\?|\"|\(|\)|\{|\}|\[|\]|\:|\;|\$|\^|\°|\#|\%|\&|\<|\>|\*|\+|\/|\\/g, '-'); //ERstetzt die Zeichen - aus dem Quellstring weil, sonst sonst probleme
-                
+
                 if(adapter.config.html_objects == true){
 
-                
+
 
                 await adapter.setObjectNotExistsAsync("HTML.Projects-HTML." + Listenname, {
                     type: 'state',
@@ -1394,46 +1396,46 @@ async function getProject(){
                         role: 'html',
                         name: 'ID ' + listenID,
                         type: 'string',
-                        
+
                     },
                     native: {}
               		});
                 }
-                if(adapter.config.json_objects == true){	
+                if(adapter.config.json_objects == true){
               	await adapter.setObjectNotExistsAsync("JSON.Projects-JSON." + Listenname, {
                     type: 'state',
                     common: {
                         role: 'json',
                         name: 'ID ' + listenID,
                         type: 'string',
-                        
+
                     },
                     native: {}
               		});
                 }
-                if(adapter.config.text_objects == true){	
+                if(adapter.config.text_objects == true){
                     await adapter.setObjectNotExistsAsync("TEXT.Projects-TEXT." + Listenname, {
                       type: 'state',
                       common: {
                         role: 'text',
                           name: 'ID ' + listenID,
                           type: 'string',
-                          
+
                       },
                       native: {}
                         });
                   }
             //json_neu[k].Name.push(Listenname);
             // json_neu[k].ID.push(listenID);
-            
+
             json_neu_parse.push({"name":Listenname, "ID":listenID});
-            
+
             json_neu = JSON.stringify(json_neu_parse);
             if(debug) adapter.log.info("Aufbau Projekt Liste: " + json_neu);
 
 
             }
-            
+
             if(adapter.config.json_objects == true){
             await adapter.setObjectNotExistsAsync("ALL.JSON-Projects", {
 					type: 'state',
@@ -1441,20 +1443,20 @@ async function getProject(){
                         role: 'json',
                         name: 'JSON Objekt of all Projects',
                         type: 'string',
-                        
+
                     },
                     native: {}
-              		});	
+              		});
 
-           
+
              await adapter.setStateAsync("ALL.JSON-Projects", {val: json_neu, ack: true});
             }
-            
-       
-           
-        
-         
-  
+
+
+
+
+
+
 
 	return {
 		projects_id: ToDoListen,
@@ -1464,25 +1466,25 @@ async function getProject(){
 
 
 async function getLabels(){
-    
+
     if(debug) adapter.log.info("Funktion get labels");
-		
-	var Labelsid = []; 
-    var Labels_names = []; 
+
+	var Labelsid = [];
+    var Labels_names = [];
 
     var json_neu = "[]";
     var json_neu_parse = JSON.parse(json_neu);
-    	
-            
+
+
             var i;
             var labels_json = all_label_objekts;  //Labels in globale Variable lesen
 
             for (i = 0; i < labels_json.length; i++) {
-                
+
                 var labels1 = parseInt(labels_json[i].id);
-                
+
                 var is_blacklist = false;
-                for (var w = 0; w < bl_labels.length; w++){               
+                for (var w = 0; w < bl_labels.length; w++){
                     if(labels1 == bl_labels[w].id){
                       //  adapter.log.info("projects: " + labels1);
                       //  adapter.log.info("liste: " +  JSON.stringify(bl_labels[w]));
@@ -1495,12 +1497,12 @@ async function getLabels(){
                     continue;
                 }
 
-                 
+
 
                 var Labels1_names = JSON.stringify(labels_json[i].name);
                 Labels1_names = Labels1_names.replace(/\"/g, ''); //entfernt die Anfuehrungszeichen aus dem Quellstring
                 Labels1_names = Labels1_names.replace(/\./g, '-'); //entfent die PUnkte hoffentlich...
-                //für Return 
+                //für Return
                 Labelsid[Labelsid.length] = labels1;
                 Labels_names[Labels_names.length] = Labels1_names;
                 /*
@@ -1508,7 +1510,7 @@ async function getLabels(){
                 var Labels2ID = Labelsid[i];
                 */
                  if(debug) adapter.log.info("labels anlegen...." + Labels1_names);
-                
+
                 Labels1_names = Labels1_names.replace(/[^a-zA-Z0-9]/g, '-'); //ERstetzt die Zeichen - aus dem Quellstring weil, sonst sonst probleme
 
                 if(adapter.config.html_objects == true){
@@ -1520,43 +1522,43 @@ async function getLabels(){
                         role: 'html',
                         name: 'ID ' + labels1,
                         type: 'string',
-                        
+
                     },
                     native: {}
               		});
                 }
-                if(adapter.config.json_objects == true){	
+                if(adapter.config.json_objects == true){
             	await adapter.setObjectNotExistsAsync("JSON.Labels-JSON." + Labels1_names, {
                     type: 'state',
                     common: {
                         role: 'json',
                         name: 'ID ' + labels1,
                         type: 'string',
-                        
+
                     },
                     native: {}
                       });
                 }
-                if(adapter.config.text_objects == true){	
+                if(adapter.config.text_objects == true){
                     await adapter.setObjectNotExistsAsync("TEXT.Labels-TEXT." + Labels1_names, {
                         type: 'state',
                         common: {
                             role: 'text',
                             name: 'ID ' + labels1,
                             type: 'string',
-                            
+
                         },
                         native: {}
                           });
                     }
                       //Baut den Json auf für Json-Labels
                       json_neu_parse.push({"name":Labels1_names, "ID":labels1});
-            
+
                       json_neu = JSON.stringify(json_neu_parse);
-                      if(debug) adapter.log.info("Aufbau Projekt Liste: " + json_neu)   
-                
+                      if(debug) adapter.log.info("Aufbau Projekt Liste: " + json_neu)
+
             }
-            
+
             if(adapter.config.json_objects == true){
             await adapter.setObjectNotExistsAsync("ALL.JSON-Labels", {
 					type: 'state',
@@ -1564,25 +1566,25 @@ async function getLabels(){
                         role: 'json',
                         name: 'JSON Objekt of all Labels',
                         type: 'string',
-                        
+
                     },
                     native: {}
               		});
-            
-             	
+
+
              await adapter.setStateAsync("ALL.JSON-Labels", {val: json_neu, ack: true});
             }
 
-    
+
         //jetzt noch die alten Labels löschen, die es nicht mehr gibt:
         /*
         setTimeout(function(){
-    
+
 		adapter.log.warn("löschen alter einträge: ");
 		var Key;
-        var bestehende_objekte = adapter.getStates('todoist2.' + adapter.instance + '.Labels-JSON.*'); 
+        var bestehende_objekte = adapter.getStates('todoist2.' + adapter.instance + '.Labels-JSON.*');
 		//bestehende_objekte = bestehende_objekte.replace(/\\/g, ''); //Backschlasche entfernen!
-		
+
 		adapter.log.warn(JSON.stringify(bestehende_objekte));
 		bestehende_objekte = bestehende_objekte.replace(/\\/g, ''); //Backschlasche entfernen!
         adapter.log.warn(JSON.stringify(bestehende_objekte));
@@ -1594,43 +1596,43 @@ async function getLabels(){
             	adapter.log.warn("bestehende objekde: " + dd);
             	//Gibt es das bestehende Objekt noch in der Device liste?
             	//var ddd = device.some(function(item){return item.name === dd;});
-            	//Wenn es das Objekt nicht mehr gibt dann löschen:	
+            	//Wenn es das Objekt nicht mehr gibt dann löschen:
             	//if (ddd === false){await this.delObjectAsync(dd);}
-            	
+
             }
-          */  
+          */
 	//	}, 8000);
 	return {
 		labels_id: Labelsid,
 		labes_names: Labels_names
 	};
-	
+
 }
 
 async function getSections(){
-	
-	
+
+
 	if(debug) adapter.log.info("Funktion get Sections");
-	
-	var Sectionsid = []; 
+
+	var Sectionsid = [];
     var Sections_names = [];
-    
+
     var json_neu = "[]";
     var json_neu_parse = JSON.parse(json_neu);
 
-	
+
             var sections_json = all_sections_objects;
             var i;
-            
-            
+
+
             if (sections_json.length > 0){
-            
+
             for (i = 0; i < sections_json.length; i++) {
-                
+
                 var sections1 = parseInt(sections_json[i].id);
 
                 var is_blacklist = false;
-                for (var w = 0; w < bl_sections.length; w++){               
+                for (var w = 0; w < bl_sections.length; w++){
                     if(sections1 == bl_sections[w].id){
                        // adapter.log.info("projects: " + sections1);
                        // adapter.log.info("liste: " +  JSON.stringify(bl_sections[w]));
@@ -1649,36 +1651,36 @@ async function getSections(){
                 sections1_names = sections1_names.replace(/\"/g, ''); //entfernt die Anfuehrungszeichen aus dem Quellstring
                 Sectionsid[Sectionsid.length] = sections1;
                 Sections_names[Sections_names.length] = sections1_names;
-                
+
                 var Sections2name = Sections_names[i];
                 var Sections2ID = Sectionsid[i];
-                
+
                 Sections2name = Sections2name.replace(/[^a-zA-Z0-9]/g, ''); //ERstetzt die Zeichen - aus dem Quellstring weil, sonst sonst probleme
-                
+
                 await adapter.setObjectNotExistsAsync("Sections." + Sections2name, {
                     type: 'state',
                     common: {
                         role: 'text',
                         name: 'ID ' + Sections2ID,
                         type: 'string'
-                        
+
                     },
                     native: {}
                       });
-                      
+
                       //Baut den Json auf für Json-Labels
                       json_neu_parse.push({"name":Sections2name, "ID":Sections2ID});
-            
+
                       json_neu = JSON.stringify(json_neu_parse);
-                      if(debug) adapter.log.info("Aufbau Projekt Liste: " + json_neu)   
-                
+                      if(debug) adapter.log.info("Aufbau Projekt Liste: " + json_neu)
+
             }
-            
+
             }else{
-        	
+
         	adapter.log.warn("no Sections found. Please turn it off");
         }
-        
+
         if(adapter.config.json_objects == true){
         await adapter.setObjectNotExistsAsync("ALL.JSON-Sections", {
 					type: 'state',
@@ -1686,40 +1688,40 @@ async function getSections(){
                         role: 'json',
                         name: 'JSON Objekt of all Sections',
                         type: 'string',
-                        
+
                     },
                     native: {}
               		});
-            
-              	
+
+
              await adapter.setStateAsync("ALL.JSON-Sections", {val: json_neu, ack: true});
         }
-        
-        
+
+
 	return {
 		sections_id: Sectionsid,
 		sections_names: Sections_names
 	};
-	
+
 }
 
 async function tasktotask(){
-                           
+
     var i;
     if(debug) adapter.log.info("Funktion task to task");
     //if(debug) adapter.log.warn("anzahl task: " + json.length);
     var json = all_task_objekts;
 
     var json_neu = "[]";
-    var json_neu_parse = JSON.parse(json_neu);  
+    var json_neu_parse = JSON.parse(json_neu);
 
     //Schleife für Objekte unter Tasks:
     for (i = 0; i < json.length; i++) {
-                        
+
         var Liste = parseInt(json[i].project_id);
 
         var is_blacklist = false;
-        for (var w = 0; w < bl_projects.length; w++){               
+        for (var w = 0; w < bl_projects.length; w++){
             if(Liste == bl_projects[w].id){
                // adapter.log.info("projects in Tasks: " + Liste);
                // adapter.log.info("liste: " +  JSON.stringify(bl_projects[w]));
@@ -1732,11 +1734,11 @@ async function tasktotask(){
             continue;
         }
 
-        if(adapter.config.json_objects === true){	
+        if(adapter.config.json_objects === true){
             var prio_neu = 0;
             await helper.reorder_prio(json[i].priority).then(data => { prio_neu = data });
             await json_verarbeitung.table_json(adapter, json[i], prio_neu, all_project_objekts, all_label_objekts, all_sections_objects, all_collaborators_objects).then(data => { json_neu_parse.push(data); });
-            
+
             json_neu = JSON.stringify(json_neu_parse);
 
             json_neu = json_neu.replace(/\\n/g, '');
@@ -1745,7 +1747,7 @@ async function tasktotask(){
 
             //json_neu_parse.push({"name":json[i].content, "ID":json[i].project_id});
 
-            
+
             if(debug) adapter.log.info("Aufbau Projekt Liste: " + json_neu);
         }
 
@@ -1755,13 +1757,13 @@ async function tasktotask(){
         //content = content[0].toUpperCase() + content.substring(1); // Macht den ersten Buchstaben des strings zu einem Grossbuchstaben
         var taskurl = JSON.stringify(json[i].url);
         taskurl = taskurl.replace(/\"/g, '');
-        
-        
-        
+
+
+
         //Anlage für jeden Task in einen eigenen State:
-        
+
         var content2 = content.replace(/[^a-zA-Z0-9]/g, '-'); //ERstetzt die Zeichen - aus dem Quellstring weil, sonst sonst probleme
-        
+
         adapter.setObjectNotExists("Tasks." + content2, {
                 type: 'state',
                     common: {
@@ -1771,13 +1773,13 @@ async function tasktotask(){
                         },
                             native: {}
                           });
-        
+
 
     }
 
 // Wenn JSON Objekte angelegt werden sollen denn heir das all JSON Tasks objekten anlegen:
-   
-if(adapter.config.json_objects === true){	
+
+if(adapter.config.json_objects === true){
 
     await adapter.setObjectNotExistsAsync("ALL.JSON-Tasks", {
         type: 'state',
@@ -1785,7 +1787,7 @@ if(adapter.config.json_objects === true){
             name: 'JSON Objekt of all Tasks',
             type: 'string',
             role: "json"
-            
+
         },
         native: {}
           });
@@ -1867,7 +1869,7 @@ async function tasktoproject(project){
 
 
 
-                    //var json_zwischen = JSON.stringify(json[i]); 
+                    //var json_zwischen = JSON.stringify(json[i]);
                     //json_task = json_task + json_zwischen;
                     if (debug) adapter.log.info("Aufbau Projekt Liste HTML: " + HTMLstring);
                 }
@@ -1888,7 +1890,7 @@ async function tasktoproject(project){
         if (debug) adapter.log.info("schreibe in liste: " + 'Lists.' + project.projects_names[j]);
         if (debug) adapter.log.info(HTMLstring);
 
-        //json wandeln 
+        //json wandeln
         //json_task = JSON.stringify(json_task);
 
         //Setzte den Status:
@@ -1945,7 +1947,7 @@ async function tasktoproject(project){
 //zur Verarbeitung der Tasks in den Labels:
 
 async function tasktolabels(labels){
-	
+
     if (debug) adapter.log.info("Funktion task to labels");
     var json = all_task_objekts;
     var j;
@@ -1987,7 +1989,7 @@ async function tasktolabels(labels){
             var label = []
             label = json[i].labels;
 
-            
+
 
             content = content.replace(/\"/g, ''); //entfernt die Anfuehrungszeichen aus dem Quellstring
             //content = content[0].toUpperCase() + content.substring(1); // Macht den ersten Buchstaben des strings zu einem Grossbuchstaben
@@ -2022,7 +2024,7 @@ async function tasktolabels(labels){
             }//ende schleife
             }//ende if
         } // ende schleife
-    
+
 
         if (debug) adapter.log.info("schreibe in Label: " + 'Label.' + labels.labes_names[j]);
         if (debug) adapter.log.info(HTMLstring);
@@ -2077,7 +2079,7 @@ async function tasktolabels(labels){
         }
 
     }//ende schleife
-                   
+
 }
 
 
@@ -2086,7 +2088,7 @@ async function tasktofilter(filter_json, filter_name){
     if(debug) adapter.log.info("Funktion task to filter mit name: " + filter_name);
     if(debug) adapter.log.info("länge: " + filter_json.length);
     if(debug) adapter.log.info("daten: "+ JSON.stringify(filter_json));
-                       
+
         var j;
         //if(debug) adapter.log.warn("anzahl task: " + json.length);
         var json = filter_json;
@@ -2108,7 +2110,7 @@ async function tasktofilter(filter_json, filter_name){
 
         var HTMLstring = "";
         await html_verarbeitung.heading_html(adapter).then(data => { HTMLstring = HTMLstring + data });
-        
+
 
         //wenn filter leer:
         if(filter_json.length == 0){
@@ -2118,35 +2120,35 @@ async function tasktofilter(filter_json, filter_name){
                  //wenn html tablle bei keinem todo auch nicht angezeigt werden soll:
                  if(adapter.config.html_visable == false){
                     HTMLstring = "";
-                }                      
+                }
                // adapter.setState('HTML.Filter-HTML.'+filter_name, {val: '<table><ul>' + HTMLstring_filter + '</ul></table>', ack: true});
                 adapter.setState('HTML.Filter-HTML.'+filter_name, {val: '<style>' + css + css2 + '</style>' + '<script>' + 'function myFunction(id) {servConn.setState("todoist2.0.Control.Close.ID", id)}' + '</script>' + '<table id="task_table">' + HTMLstring + '</table>', ack: true});
             }
-            
+
             await json_verarbeitung.table_json_empty(adapter).then(data => {json_task_parse.push(data);});
-                         
-            
+
+
             if(adapter.config.json_objects == true){
                 json_task = json_task.replace(/\\n/g, '');
             json_task = json_task.replace(/\\/g, '');
             json_task = json_task.replace(/\""/g, '');
                 adapter.setState('JSON.Filter-JSON.'+filter_name, {val: json_task, ack: true});
             }
-               
+
             var text_filter = adapter.config.text_notodo_name;
-                
+
             if(adapter.config.text_objects == true){
                 adapter.setState('TEXT.Filter-TEXT.'+filter_name, {val: text_filter, ack: true});
             }
         }
-    
-        
+
+
         //Schleife zum Befüllen der Filter Tasks in HTML, Texts und JSON.
         for (j = 0; j < filter_json.length; j++) {
 
 
             var is_blacklist = false;
-            for (var w = 0; w < bl_projects.length; w++){               
+            for (var w = 0; w < bl_projects.length; w++){
                 if(filter_json[j].projects_id == bl_projects[w].id){
                    // adapter.log.info("projects in Tasks: " + project.projects_id[j]);
                    // adapter.log.info("liste: " +  JSON.stringify(bl_projects[w]));
@@ -2159,7 +2161,7 @@ async function tasktofilter(filter_json, filter_name){
                 continue;
             }
 
-                    
+
             //Zuordnung zu den Listen:
 
             //HTML
@@ -2174,7 +2176,7 @@ async function tasktofilter(filter_json, filter_name){
             //json_task = json_task + json_zwischen;
             if (debug) adapter.log.info("Aufbau Filter Liste HTML: " + HTMLstring);
 
-            //JSON                     
+            //JSON
             await json_verarbeitung.table_json(adapter, json[j], prio_neu, all_project_objekts, all_label_objekts, all_sections_objects, all_collaborators_objects).then(data => { json_task_parse.push(data); });
             if (debug) adapter.log.info("Aufbau Filter Liste JSON: " + json_task_parse)
 
@@ -2185,44 +2187,44 @@ async function tasktofilter(filter_json, filter_name){
 
             text_task = text_task + content + adapter.config.text_separator;
             if (debug) adapter.log.info("Aufbau Filter Liste Text: " + text_task);
-                
-            
+
+
             if(debug) adapter.log.info("schreibe in filterliste: " +filter_name);
             if(debug) adapter.log.info(HTMLstring);
-            
-            //json wandeln 
+
+            //json wandeln
                 //json_task = JSON.stringify(json_task);
-            
-            
-    
+
+
+
         }//ende schleife
 
         //Setzte den Status:
-        if(adapter.config.html_objects == true){ 
+        if(adapter.config.html_objects == true){
             adapter.setState('HTML.Filter-HTML.'+filter_name, {val: '<style>' + css + css2 + '</style>' + '<script>' + 'function myFunction(id) {servConn.setState("todoist2.0.Control.Close.ID", id)}' + '</script>' + '<table id="task_table">' + HTMLstring + '</table>', ack: true});
         }
-        if(adapter.config.json_objects == true){    
-            
-                
+        if(adapter.config.json_objects == true){
+
+
             json_task = JSON.stringify(json_task_parse);
             json_task = json_task.replace(/\\n/g, '');
             json_task = json_task.replace(/\\/g, '');
             json_task = json_task.replace(/\""/g, '');
 
-        
+
             adapter.setState('JSON.Filter-JSON.'+filter_name, {val: json_task, ack: true});
         }
-        
+
         if(adapter.config.text_objects == true){
             if(text_task == ""){
                 text_task = adapter.config.text_notodo_name;
-            }else{                   
+            }else{
                 text_task = text_task.substr(0, text_task.length-adapter.config.text_separator.length);
-            }          
+            }
             adapter.setState('TEXT.Filter-TEXT.'+filter_name, {val: text_task, ack: true});
         }
-        
-        resolve("ok");      
+
+        resolve("ok");
 
 });
 }
@@ -2240,22 +2242,22 @@ var match = false;
 if (adapter.config.tasks == true){
     adapter.getStates('Tasks.*', function (err, states) {
        if (debug) adapter.log.info("...........Jetzt Tasks prüfen ob etwas gelöscht werden soll..............");
-        for (var id in states) {        
+        for (var id in states) {
             //Aus der ID den Namen extrahieren:
             pos = id.lastIndexOf('.');
             pos = pos +1;
             end_pos = id.length;
             new_id = id.substr(pos, end_pos);
-            
-            
-            
+
+
+
             for(var i = 0; i < all_task_objekts.length; i++){
-                
+
                 //Prüfen ob etwas auf der Blacklist steht.
                 var bearbeitet13 = all_task_objekts[i].project_id;
                 var is_blacklist = false;
-                for (var w = 0; w < bl_projects.length; w++){  
-                 
+                for (var w = 0; w < bl_projects.length; w++){
+
                     if(bearbeitet13 == bl_projects[w]){
                         is_blacklist = true;
                     }
@@ -2263,14 +2265,14 @@ if (adapter.config.tasks == true){
                 if(is_blacklist == true){
                     continue;
                 }
-                
-                
-                
+
+
+
                 //adapter.log.error("nummer: " + i + "content: " + all_task_objekts[i].content);
                 //adapter.log.info("überprüfung: " +  all_task_objekts[i].content + " mit " + new_id);
                 var bearbeitet12 = all_task_objekts[i].content.replace(/[^a-zA-Z0-9]/g, '-'); // Punkte entfernden und mit - erseztten
-                
-                
+
+
                 //Prüfen ob etwas von der API gelöscht wurde
                 if (bearbeitet12 == new_id) {
                     //adapter.log.warn("länge: " + all_task_objekts.length);
@@ -2278,13 +2280,13 @@ if (adapter.config.tasks == true){
                     //adapter.log.info("NUM: " + i + " gefunden: " + new_id);
                     match = true;
 
-                } 
+                }
 
-                
+
 
 
             }
-            
+
             if (match != true){
 
                 adapter.log.info("dieser state löschen: " + new_id);
@@ -2295,9 +2297,9 @@ if (adapter.config.tasks == true){
                            });
 
             }
-            
-        match = false;    
-        }      
+
+        match = false;
+        }
     });
 }
 
@@ -2306,7 +2308,7 @@ if (adapter.config.tasks == true){
 if (adapter.config.project == true && adapter.config.html_objects == true){
     adapter.getStates('HTML.Projects-HTML.*', function (err, states) {
       if (debug)  adapter.log.info("...........Jetzt Projekte HTML prüfen ob etwas gelöscht werden soll..............");
-        for (var id in states) {    
+        for (var id in states) {
 
             //Aus der ID den Namen extrahieren:
             pos = id.lastIndexOf('.');
@@ -2314,15 +2316,15 @@ if (adapter.config.project == true && adapter.config.html_objects == true){
             end_pos = id.length;
             new_id = id.substr(pos, end_pos);
             for(var i = 0; i < all_project_objekts.length; i++){
-                
+
                 //Prüfen ob etwas auf der Blacklist steht.
                 var bearbeitet12 = all_project_objekts[i].name; // .replace(/[^a-zA-Z0-9]/g, '-')Punkte entfernden und mit - erseztten
-                
+
                 var bearbeitet13 = all_project_objekts[i].id;
-                
+
                 var is_blacklist = false;
-                for (var w = 0; w < bl_projects.length; w++){  
-                 
+                for (var w = 0; w < bl_projects.length; w++){
+
                     if(bearbeitet13 == bl_projects[w].id){
                         if (bearbeitet12 == new_id) {
                         //adapter.log.warn("id: " + bearbeitet13);
@@ -2335,28 +2337,28 @@ if (adapter.config.project == true && adapter.config.html_objects == true){
                 }
 
 
-                
+
                  if (bearbeitet12 == new_id) {
                     // adapter.log.warn("länge Projekte: " + all_project_objekts.length);
                     // adapter.log.info("länge objekte Projekte  " + states.length);
                     // adapter.log.info("NUM: " + i + " gefunden: " + new_id);
                      match = true;
- 
-                 } 
+
+                 }
              }
-             
+
              if (match != true){
- 
+
                  adapter.log.info("dieser state löschen: " + new_id);
                  adapter.delObject("HTML.Projects-HTML." + new_id, function (err) {
- 
+
                                  if (err) adapter.log.error('Cannot delete object: ' + err);
- 
+
                              });
- 
+
              }
-             
-         match = false;   
+
+         match = false;
 
         }
     })
@@ -2365,7 +2367,7 @@ if (adapter.config.project == true && adapter.config.html_objects == true){
     if (adapter.config.project == true && adapter.config.json_objects == true){
     adapter.getStates('JSON.Projects-JSON.*', function (err, states) {
        if (debug) adapter.log.info("...........Jetzt Projekte JSON prüfen ob etwas gelöscht werden soll..............");
-        for (var id in states) {    
+        for (var id in states) {
 
             //Aus der ID den Namen extrahieren:
             pos = id.lastIndexOf('.');
@@ -2373,16 +2375,16 @@ if (adapter.config.project == true && adapter.config.html_objects == true){
             end_pos = id.length;
             new_id = id.substr(pos, end_pos);
             for(var i = 0; i < all_project_objekts.length; i++){
-                
+
 
                  //Prüfen ob etwas auf der Blacklist steht.
                  var bearbeitet12 = all_project_objekts[i].name; // .replace(/[^a-zA-Z0-9]/g, '-') Punkte entfernden und mit - erseztten
-                 
-                 
+
+
                  var bearbeitet13 = all_project_objekts[i].id;
                  var is_blacklist = false;
-                 for (var w = 0; w < bl_projects.length; w++){  
-                  
+                 for (var w = 0; w < bl_projects.length; w++){
+
                      if(bearbeitet13 == bl_projects[w].id){
                         if (bearbeitet12 == new_id) {
                         is_blacklist = true;
@@ -2394,28 +2396,28 @@ if (adapter.config.project == true && adapter.config.html_objects == true){
                  }
 
 
-                
+
                  if (bearbeitet12 == new_id) {
                      //adapter.log.warn("länge Projekte: " + all_project_objekts.length);
                      //adapter.log.info("länge objekte Projekte  " + states.length);
                      //adapter.log.info("NUM: " + i + " gefunden: " + new_id);
                      match = true;
- 
-                 } 
+
+                 }
              }
-             
+
              if (match != true){
- 
+
                  adapter.log.info("dieser state löschen: " + new_id);
                  adapter.delObject("JSON.Projects-JSON." + new_id, function (err) {
- 
+
                                  if (err) adapter.log.error('Cannot delete object: ' + err);
- 
+
                              });
- 
+
              }
-             
-         match = false;   
+
+         match = false;
 
         }
     })
@@ -2425,7 +2427,7 @@ if (adapter.config.project == true && adapter.config.html_objects == true){
 if (adapter.config.project == true && adapter.config.text_objects == true){
     adapter.getStates('TEXT.Projects-TEXT.*', function (err, states) {
        if (debug) adapter.log.info("...........Jetzt Projekte TEXT prüfen ob etwas gelöscht werden soll..............");
-        for (var id in states) {    
+        for (var id in states) {
 
             //Aus der ID den Namen extrahieren:
             pos = id.lastIndexOf('.');
@@ -2433,15 +2435,15 @@ if (adapter.config.project == true && adapter.config.text_objects == true){
             end_pos = id.length;
             new_id = id.substr(pos, end_pos);
             for(var i = 0; i < all_project_objekts.length; i++){
-                
+
 
                  //Prüfen ob etwas auf der Blacklist steht.
                  var bearbeitet12 = all_project_objekts[i].name; // Punkte entfernden und mit - erseztten .replace(/[^a-zA-Z0-9]/g, '-')
-                 
+
                  var bearbeitet13 = all_project_objekts[i].id;
                  var is_blacklist = false;
-                 for (var w = 0; w < bl_projects.length; w++){  
-                  
+                 for (var w = 0; w < bl_projects.length; w++){
+
                      if(bearbeitet13 == bl_projects[w].id){
                         if (bearbeitet12 == new_id) {
                         is_blacklist = true;
@@ -2454,28 +2456,28 @@ if (adapter.config.project == true && adapter.config.text_objects == true){
                 //adapter.log.info("liste aller dinge " + bearbeitet12);
                 //adapter.log.info("zu prüfendes ding " + new_id);
 
-                
+
                  if (bearbeitet12 == new_id) {
                      //adapter.log.warn("länge Projekte: " + all_project_objekts.length);
                      //adapter.log.info("länge objekte Projekte  " + states.length);
                      //adapter.log.info("NUM: " + i + " gefunden: " + new_id);
                      match = true;
- 
-                 } 
+
+                 }
              }
-             
+
              if (match != true){
- 
+
                  adapter.log.info("Projekte Text dieser state löschen: " + new_id);
                  adapter.delObject("TEXT.Projects-TEXT." + new_id, function (err) {
- 
+
                                  if (err) adapter.log.error('Cannot delete object: ' + err);
- 
+
                              });
- 
+
              }
-             
-         match = false;   
+
+         match = false;
 
         }
     })
@@ -2490,7 +2492,7 @@ if (adapter.config.project == true && adapter.config.text_objects == true){
 if (adapter.config.labels == true && adapter.config.html_objects == true){
 adapter.getStates('HTML.Labels-HTML.*', function (err, states) {
     if (debug) adapter.log.info("...........Jetzt Labels HTML prüfen ob etwas gelöscht werden soll..............");
-    for (var id in states) {    
+    for (var id in states) {
 
         //Aus der ID den Namen extrahieren:
         pos = id.lastIndexOf('.');
@@ -2499,33 +2501,33 @@ adapter.getStates('HTML.Labels-HTML.*', function (err, states) {
         new_id = id.substr(pos, end_pos);
 
         for(var i = 0; i < all_label_objekts.length; i++){
-            
+
             //Prüfen ob etwas auf der Blacklist steht.
             var bearbeitet13 = all_label_objekts[i].id;
             var bearbeitet12 = all_label_objekts[i].name; //  .replace(/[^a-zA-Z0-9]/g, '-')Punkte entfernden und mit - erseztten
-            
+
             var is_blacklist = false;
             //adapter.log.warn("länge bl_labels " + bl_labels.length);
-            for (var w = 0; w < bl_labels.length; w++){  
+            for (var w = 0; w < bl_labels.length; w++){
              //adapter.log.info("ich bin in der schleife");
              //adapter.log.info("bl label id" + bl_labels[w].id);
              //adapter.log.info("bearbeitet " + bearbeitet13);
                 if(bearbeitet13 == bl_labels[w].id){
                     if(bearbeitet12 == new_id){
-                    
+
                     is_blacklist = true;
-                    
+
                     }
                     }
-            
-            }        
+
+            }
             if(is_blacklist == true){
                 continue;
                 }
 
-           
 
-            
+
+
 
              if (bearbeitet12 == new_id) {
                  //adapter.log.warn("länge Projekte: " + all_project_objekts.length);
@@ -2533,7 +2535,7 @@ adapter.getStates('HTML.Labels-HTML.*', function (err, states) {
                  //adapter.log.info("NUM: " + i + " gefunden: " + new_id);
                  match = true;
 
-             } 
+             }
          }
         // adapter.log.warn("vor löschung " + new_id + " match " + match);
          if (match != true){
@@ -2546,8 +2548,8 @@ adapter.getStates('HTML.Labels-HTML.*', function (err, states) {
                          });
 
          }
-         
-     match = false;   
+
+     match = false;
 
     }
 })
@@ -2556,7 +2558,7 @@ adapter.getStates('HTML.Labels-HTML.*', function (err, states) {
 if (adapter.config.labels == true && adapter.config.json_objects == true){
 adapter.getStates('JSON.Labels-JSON.*', function (err, states) {
     if(debug) adapter.log.info("...........Jetzt Labels JSON prüfen ob etwas gelöscht werden soll..............");
-    for (var id in states) {    
+    for (var id in states) {
 
         //Aus der ID den Namen extrahieren:
         pos = id.lastIndexOf('.');
@@ -2564,15 +2566,15 @@ adapter.getStates('JSON.Labels-JSON.*', function (err, states) {
         end_pos = id.length;
         new_id = id.substr(pos, end_pos);
 
-    
+
 
         for(var i = 0; i < all_label_objekts.length; i++){
-            
+
             var bearbeitet12 = all_label_objekts[i].name; //.replace(/[^a-zA-Z0-9]/g, '-') Punkte entfernden und mit - erseztten
             var bearbeitet13 = all_label_objekts[i].id;
             var is_blacklist = false;
-            for (var w = 0; w < bl_labels.length; w++){  
-             
+            for (var w = 0; w < bl_labels.length; w++){
+
                 if(bearbeitet13 == bl_labels[w].id){
                     if (bearbeitet12 == new_id) {
                     is_blacklist = true;
@@ -2584,16 +2586,16 @@ adapter.getStates('JSON.Labels-JSON.*', function (err, states) {
             }
 
 
-            
+
              if (bearbeitet12 == new_id) {
                 // adapter.log.warn("länge Projekte: " + all_project_objekts.length);
                  //adapter.log.info("länge objekte Projekte  " + states.length);
                  //adapter.log.info("NUM: " + i + " gefunden: " + new_id);
                  match = true;
 
-             } 
+             }
          }
-         
+
          if (match != true){
 
              adapter.log.info("json html dieser state löschen: " + new_id);
@@ -2604,8 +2606,8 @@ adapter.getStates('JSON.Labels-JSON.*', function (err, states) {
                          });
 
          }
-         
-     match = false;   
+
+     match = false;
 
     }
 })
@@ -2615,23 +2617,23 @@ adapter.getStates('JSON.Labels-JSON.*', function (err, states) {
 if (adapter.config.labels == true && adapter.config.text_objects == true){
     adapter.getStates('TEXT.Labels-TEXT.*', function (err, states) {
         if(debug) adapter.log.info("...........Jetzt Labels Text prüfen ob etwas gelöscht werden soll..............");
-        for (var id in states) {    
-    
+        for (var id in states) {
+
             //Aus der ID den Namen extrahieren:
             pos = id.lastIndexOf('.');
             pos = pos +1;
             end_pos = id.length;
             new_id = id.substr(pos, end_pos);
-    
-        
-    
+
+
+
             for(var i = 0; i < all_label_objekts.length; i++){
-                
+
                 var bearbeitet12 = all_label_objekts[i].name; //.replace(/[^a-zA-Z0-9]/g, '-') Punkte entfernden und mit - erseztten
                 var bearbeitet13 = all_label_objekts[i].id;
                 var is_blacklist = false;
-                for (var w = 0; w < bl_labels.length; w++){  
-                 
+                for (var w = 0; w < bl_labels.length; w++){
+
                     if(bearbeitet13 == bl_labels[w].id){
                         if (bearbeitet12 == new_id) {
                         is_blacklist = true;
@@ -2641,31 +2643,31 @@ if (adapter.config.labels == true && adapter.config.text_objects == true){
                 if(is_blacklist == true){
                     continue;
                 }
-    
-    
-                
+
+
+
                  if (bearbeitet12 == new_id) {
                     // adapter.log.warn("länge Projekte: " + all_project_objekts.length);
                      //adapter.log.info("länge objekte Projekte  " + states.length);
                      //adapter.log.info("NUM: " + i + " gefunden: " + new_id);
                      match = true;
-    
-                 } 
+
+                 }
              }
-             
+
              if (match != true){
-    
+
                  adapter.log.info("Text Labels dieser state löschen: " + new_id);
                  adapter.delObject("TEXT.Labels-TEXT." + new_id, function (err) {
-    
+
                                  if (err) adapter.log.error('Cannot delete object: ' + err);
-    
+
                              });
-    
+
              }
-             
-         match = false;   
-    
+
+         match = false;
+
         }
     })
     }
@@ -2675,7 +2677,7 @@ if (adapter.config.labels == true && adapter.config.text_objects == true){
 if(adapter.config.html_objects == true){
     adapter.getStates('HTML.Filter-HTML.*', function (err, states) {
         if(debug) adapter.log.info("...........Jetzt Filter HTML prüfen ob etwas gelöscht werden soll..............");
-        for (var id in states) { 
+        for (var id in states) {
 
             //Aus der ID den Namen extrahieren:
             pos = id.lastIndexOf('.');
@@ -2693,17 +2695,17 @@ if(adapter.config.html_objects == true){
             }
 
             if (match != true){
-    
+
                 adapter.log.info("Filter Html löschen: " + new_id);
                 adapter.delObject("HTML.Filter-HTML." + new_id, function (err) {
-   
+
                                 if (err) adapter.log.error('Cannot delete object: ' + err);
-   
+
                             });
-   
+
             }
-            
-        match = false;  
+
+        match = false;
 
         }
 
@@ -2717,7 +2719,7 @@ if(adapter.config.html_objects == true){
 if(adapter.config.html_objects == true){
     adapter.getStates('JSON.Filter-JSON.*', function (err, states) {
         if(debug) adapter.log.info("...........Jetzt Filter JSON prüfen ob etwas gelöscht werden soll..............");
-        for (var id in states) { 
+        for (var id in states) {
 
             //Aus der ID den Namen extrahieren:
             pos = id.lastIndexOf('.');
@@ -2735,17 +2737,17 @@ if(adapter.config.html_objects == true){
             }
 
             if (match != true){
-    
+
                 adapter.log.info("Filter JSON löschen: " + new_id);
                 adapter.delObject("JSON.Filter-JSON." + new_id, function (err) {
-   
+
                                 if (err) adapter.log.error('Cannot delete object: ' + err);
-   
+
                             });
-   
+
             }
-            
-        match = false;  
+
+        match = false;
 
         }
 
@@ -2759,7 +2761,7 @@ if(adapter.config.html_objects == true){
 if(adapter.config.html_objects == true){
     adapter.getStates('TEXT.Filter-TEXT.*', function (err, states) {
         if(debug) adapter.log.info("...........Jetzt Filter TEXT prüfen ob etwas gelöscht werden soll..............");
-        for (var id in states) { 
+        for (var id in states) {
 
             //Aus der ID den Namen extrahieren:
             pos = id.lastIndexOf('.');
@@ -2777,17 +2779,17 @@ if(adapter.config.html_objects == true){
             }
 
             if (match != true){
-    
+
                 adapter.log.info("Filter TEXT löschen: " + new_id);
                 adapter.delObject("TEXT.Filter-TEXT." + new_id, function (err) {
-   
+
                                 if (err) adapter.log.error('Cannot delete object: ' + err);
-   
+
                             });
-   
+
             }
-            
-        match = false;  
+
+        match = false;
 
         }
 
@@ -2814,7 +2816,7 @@ async function filterlist(){
     filter_query = encodeURIComponent(filter_query);
 
     if(filter_aktiv != true){
-        continue; 
+        continue;
     }
 
     //adapter.log.info(filter_aktiv);
@@ -2831,31 +2833,31 @@ async function filterlist(){
             role: 'html',
             name: 'Query ' + filter_query,
             type: 'string',
-            
+
         },
         native: {}
           });
     }
-    if(adapter.config.json_objects == true){	
+    if(adapter.config.json_objects == true){
       await adapter.setObjectNotExistsAsync("JSON.Filter-JSON." + filter_name, {
         type: 'state',
         common: {
             role: 'json',
             name: 'Query ' + filter_query,
             type: 'string',
-            
+
         },
         native: {}
           });
     }
-    if(adapter.config.text_objects == true){	
+    if(adapter.config.text_objects == true){
         await adapter.setObjectNotExistsAsync("TEXT.Filter-TEXT." + filter_name, {
           type: 'state',
           common: {
             role: 'text',
               name: 'Query ' + filter_query,
               type: 'string',
-              
+
           },
           native: {}
             });
@@ -2876,30 +2878,30 @@ async function filterlist(){
 
 
 async function getDate_filter(filter_query){
-	
+
 	var APItoken = adapter.config.token;
-    
+
 await axios({
     method: 'get',
     baseURL: 'https://api.todoist.com',
-    url: '/rest/v2/tasks?filter=' + filter_query, 
+    url: '/rest/v2/tasks?filter=' + filter_query,
     responseType: 'json',
-    headers: 
+    headers:
     { Authorization: 'Bearer ' + APItoken}
 }
-).then( 
+).then(
     function (response) {
         if(debug)adapter.log.info('hole  Filter: ' + response);
         if(typeof response === 'object' && response.status == 402){
             adapter.log.warn("Todoist Api say you don't have a premium account. Pleasy bye one or deaktivate this feature!")
         }else{
         var filter_json = response.data;
-        
+
          all_filter_objects = filter_json;
-            
+
         }
     }
-    
+
 ).catch(
 
     function (error) {
@@ -2914,7 +2916,7 @@ await axios({
            adapter.log.info(error.message);
         } else {
             // Something happened in setting up the request that triggered an Error
-            adapter.log.error(error.message); 
+            adapter.log.error(error.message);
         }
 }.bind(adapter)
 
@@ -2947,13 +2949,13 @@ async function main() {
         online_count ++;
         if(online_count > 10){
             clearInterval(mainintval);
-            adapter.log.error("Adapter cant't finde the API. You need to restart the Adapter to try again!!!!")   ;       
+            adapter.log.error("Adapter cant't finde the API. You need to restart the Adapter to try again!!!!")   ;
         }
         adapter.log.warn("Check again in " + poll + " seconds!");
         var x = 10 - online_count;
         adapter.log.warn("Checks before you need to restatd the Adapter: " + x);
         return
-        
+
     };
 
     //ist online, deshalb count auf 0 stellen:
@@ -2962,24 +2964,24 @@ async function main() {
         adapter.log.info("Adapter is online, Checks before restart reset!");
 
     }
-  
-    
+
+
 
     poll = adapter.config.pollingInterval;
-    
+
     if (debug) adapter.log.warn("Debug Mode for todoist is online: Many Logs are generated!");
     //if (debug) adapter.log.info("Token: " + adapter.config.token);
 	if (debug) adapter.log.info("Polling: " + adapter.config.pollingInterval);
     if (debug) adapter.log.info("Debug mode: " + adapter.config.debug);
     if (debug) adapter.log.warn("Dublikate Modus: " + adapter.config.dublicate);
-   
+
     // lese die daten ein:
     status = await getData();
 
     // wenn daten da sind weiter:
     if(adapter.config.raw_data === true){
         var raw_data =  await getRAW();
-        
+
     }
 
 
@@ -2987,45 +2989,45 @@ async function main() {
             var projects =  await getProject();
             if (typeof projects !== "undefined") {
             tasktoproject(projects);
-            }	
+            }
         }
-        
+
         if(adapter.config.section === true){
-            var sections =  await getSections();	
-                
+            var sections =  await getSections();
+
         }
 
         if(adapter.config.labels === true){
             var labels =  await getLabels();
             if (typeof labels !== "undefined") {
-            tasktolabels(labels);	         
+            tasktolabels(labels);
             }
         }
-        
+
         if(adapter.config.tasks === true){
 
             tasktotask();
 
         }
 
-     
+
         syncronisation();
-    
+
 
     if (adapter.config.rm_old_objects == true){
 
         remove_old_objects();
 
     }
-    
+
     if (adapter.config.filter_aktiv == true){
-    
+
         filterlist();
 
     }
-    
 
-    
+
+
 
 //wenn fertig  funktion nach ablauf poll neu starten:
 //mainintval =  (function(){main();}, 60000);
