@@ -340,7 +340,7 @@ async function processMessages(obj) {
                     msg.task,
                     msg.project_id,
                     msg.section_id,
-                    msg.parent,
+                    msg.parent_id,
                     msg.order,
                     msg.label_id,
                     msg.priority,
@@ -540,7 +540,7 @@ async function addTask(
     item,
     project_id,
     section_id,
-    parent,
+    parent_id,
     order,
     label_id,
     priority,
@@ -558,7 +558,7 @@ async function addTask(
     dbg(`item: ${item}`);
     dbg(`project_id: ${legacyProjectId}`);
     dbg(`section_id: ${section_id}`);
-    dbg(`parent: ${parent}`);
+    dbg(`parent_id: ${parent_id}`);
     dbg(`order: ${order}`);
     dbg(`label_id: ${JSON.stringify(label_id)}`);
     dbg(`priority: ${priority}`);
@@ -594,7 +594,7 @@ async function addTask(
     const sId = toNum(section_id);
     if (isSet(sId)) payload.section_id = sId;
 
-    if (isSet(parent)) payload.parent = parent;
+    if (isSet(parent_id)) payload.parent_id = parent_id;
 
     const ord = toNum(order);
     if (isSet(ord)) payload.order = ord;
