@@ -599,14 +599,14 @@ async function addTask(
     const ord = toNum(order);
     if (isSet(ord)) payload.order = ord;
 
-    // label_ids muss ein Array sein (Todoist REST v2)
     if (isSet(label_id)) {
-        if (Array.isArray(label_id)) {
-            payload.label_ids = label_id.map((x) => (typeof x === "number" ? x : Number(x))).filter((x) => !Number.isNaN(x));
-        } else {
-            const n = Number(label_id);
-            payload.label_ids = Number.isNaN(n) ? [String(label_id)] : [n];
-        }
+        const toNumberOrString = (x) => {
+            const n = Number(x);
+            return Number.isNaN(n) ? String(x) : n;
+        };
+
+        const ids = Array.isArray(label_id) ? label_id : [label_id];
+        payload.labels = ids.map(toNumberOrString).filter((x) => x !== '');
     }
 
     const prio = toNum(priority);
